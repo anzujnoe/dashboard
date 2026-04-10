@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>영도 외국인 방문자 분석</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/chartjs-plugin-datalabels/2.2.0/chartjs-plugin-datalabels.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI", sans-serif;
+      background: #f6f5f1;
+      color: #2f312f;
+      padding: 22px;
+    }
+    .wrap { max-width: 980px; margin: 0 auto; display: grid; gap: 18px; }
+    .card {
+      background: #fbfbf8;
+      border: 1px solid #cfcbbd;
+      border-radius: 18px;
+      padding: 20px 20px 18px;
+      box-shadow: 0 1px 0 rgba(0,0,0,0.02);
+    }
+    h1 { font-size: 18px; font-weight: 700; margin-bottom: 4px; color: #2d342f; }
+    .sub { font-size: 13px; color: #6f766f; margin-bottom: 18px; }
+    .section-title { font-size: 14px; font-weight: 600; color: #3d4440; margin: 18px 0 10px; }
+    .chart-wrap { position: relative; width: 100%; }
+    .legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px; font-size: 12px; color: #6f766f; align-items: center; }
+    .legend-item { display: flex; align-items: center; gap: 5px; }
+    .legend-dot { width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0; }
+    .tab-row { display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap; }
+    .tab-btn { padding: 6px 14px; border: 1px solid #bdb8aa; border-radius: 10px; background: white; color: #505550; font-size: 13px; cursor: pointer; }
+    .tab-btn:hover { background: #f0ede4; }
+    .tab-btn.active { background: #e6f1fb; color: #185fa5; border-color: #a8c8ef; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 14px; table-layout: fixed; }
+    thead tr { border-bottom: 1px solid #d8d3c8; }
+    th, td { padding: 10px 12px; border-bottom: 1px solid #ece8df; }
+    th { text-align: left; color: #5d635e; font-weight: 700; font-size: 13px; }
+    td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+    td.pos { color: #11775c; font-weight: 700; }
+    td.neg { color: #a32d2d; font-weight: 700; }
+    td.rate-pos { text-align: right; color: #11775c; font-weight: 700; }
+    td.rate-neg { text-align: right; color: #a32d2d; font-weight: 700; }
+    tr:last-child td { border-bottom: none; }
+    .divider { border: none; border-top: 1px solid #ece8df; margin: 18px 0; }
+    .btn-row { margin-top: 16px; display: flex; gap: 10px; flex-wrap: wrap; }
+    button.dl-btn { border: 1px solid #bdb8aa; background: white; color: #505550; border-radius: 10px; padding: 9px 14px; font-size: 13px; cursor: pointer; }
+    button.dl-btn:hover { background: #f0ede4; }
+    .note { font-size: 12px; color: #7a807a; margin-top: 10px; line-height: 1.5; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ① 월별 방문자 수 추이 -->
+  <section class="card">
+    <h1>행정동별 외국인 방문자 수</h1>
+    <div class="sub">2025년 1~3월 / 2026년 1~3월 · SKT 기준</div>
+
+    <p class="section-title">월별 방문자 수 추이</p>
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="setTrendMode('line', this)">꺾은선</button>
+      <button class="tab-btn" onclick="setTrendMode('bar', this)">막대</button>
+    </div>
+    <div class="chart-wrap" style="height: 360px;">
+      <canvas id="trendChart" role="img" aria-label="행정동별 외국인 방문자 수 추이"></canvas>
+    </div>
+    <div class="legend" id="trendLegend"></div>
+
+    <hr class="divider">
+
+    <!-- ② 전년 동월 증감률 -->
+    <p class="section-title">전년 동월 대비 증감률 (1~3월)</p>
+    <div class="chart-wrap" style="height: 260px;">
+      <canvas id="rateBarChart" role="img" aria-label="행정동별 전년 동월 증감률"></canvas>
+    </div>
+    <div class="legend" id="rateBarLegend"></div>
+
+    <hr class="divider">
+
+    <!-- ③ 월별 수치 상세 -->
+    <p class="section-title">월별 수치 상세</p>
+    <table>
+      <thead>
+        <tr>
+          <th>행정동</th>
+          <th class="num">2025년 1월</th>
+          <th class="num">2025년 2월</th>
+          <th class="num">2025년 3월</th>
+          <th class="num">2026년 1월</th>
+          <th class="num">2026년 2월</th>
+          <th class="num">2026년 3월</th>
+        </tr>
+      </thead>
+      <tbody id="detailTbody"></tbody>
+    </table>
+
+    <hr class="divider">
+
+    <!-- ④ 전년 동월 증감률 상세 -->
+    <p class="section-title">전년 동월 대비 증감률 상세</p>
+    <table>
+      <thead>
+        <tr>
+          <th rowspan="2">행정동</th>
+          <th class="num" colspan="2" style="border-bottom:1px solid #ece8df">1월</th>
+          <th class="num" colspan="2" style="border-bottom:1px solid #ece8df">2월</th>
+          <th class="num" colspan="2" style="border-bottom:1px solid #ece8df">3월</th>
+        </tr>
+        <tr>
+          <th class="num" style="font-size:11px;color:#888780">증감</th>
+          <th class="num" style="font-size:11px;color:#888780">증감률</th>
+          <th class="num" style="font-size:11px;color:#888780">증감</th>
+          <th class="num" style="font-size:11px;color:#888780">증감률</th>
+          <th class="num" style="font-size:11px;color:#888780">증감</th>
+          <th class="num" style="font-size:11px;color:#888780">증감률</th>
+        </tr>
+      </thead>
+      <tbody id="rateTbody"></tbody>
+    </table>
+
+    <div class="btn-row">
+      <button class="dl-btn" onclick="downloadCanvas('trendChart','외국인방문자_추이.png')">추이 차트 PNG 저장</button>
+    </div>
+  </section>
+
+  <!-- ⑤ 행정동별 3월 증감률 (동 단위, v2 파일) -->
+  <section class="card">
+    <h1>행정동별 외국인 방문자 수 증가율</h1>
+    <div class="sub">2025년 3월 → 2026년 3월 · 영도 행정동 기준</div>
+
+    <div class="chart-wrap" style="height: 470px;">
+      <canvas id="dongChart" role="img" aria-label="행정동별 3월 외국인 방문자 증감률"></canvas>
+    </div>
+    <div class="legend">
+      <span class="legend-item"><span class="legend-dot" style="background:#259f78"></span>증가</span>
+    </div>
+
+    <p class="section-title">행정동 상세 수치</p>
+    <table>
+      <thead>
+        <tr>
+          <th>행정동</th>
+          <th class="num">2025년 3월</th>
+          <th class="num">2026년 3월</th>
+          <th class="num">증감</th>
+          <th class="num">증감률</th>
+        </tr>
+      </thead>
+      <tbody id="dongTbody"></tbody>
+    </table>
+
+    <div class="btn-row">
+      <button class="dl-btn" onclick="downloadCanvas('dongChart','행정동별_증감률_202503_202603.png')">행정동 차트 PNG 저장</button>
+    </div>
+  </section>
+
+  <!-- ⑥ 봉래동 월별 증가 추이 -->
+  <section class="card">
+    <h1>월별 외국인 방문자 증가 추이</h1>
+    <div class="sub">봉래동(봉래1동+봉래2동) · 2025년 동월 대비 2026년 증가 방문자 수</div>
+
+    <div class="chart-wrap" style="height: 360px;">
+      <canvas id="monthlyChart" role="img" aria-label="봉래동 월별 외국인 방문자 증가 추이"></canvas>
+    </div>
+
+    <table style="margin-top:16px">
+      <thead>
+        <tr>
+          <th>월</th>
+          <th class="num">2025년</th>
+          <th class="num">2026년</th>
+          <th class="num">증가 방문자 수</th>
+        </tr>
+      </thead>
+      <tbody id="monthlyTbody"></tbody>
+    </table>
+
+    <div class="btn-row">
+      <button class="dl-btn" onclick="downloadCanvas('monthlyChart','봉래동_월별_증가추이.png')">월별 차트 PNG 저장</button>
+    </div>
+    <div class="note">오른쪽 숫자가 잘리지 않도록 차트 우측 여백을 늘렸습니다.</div>
+  </section>
+
+</div>
+<script>
+  Chart.register(ChartDataLabels);
+
+  const fmt = n => n.toLocaleString('ko-KR');
+  const fmtS = n => (n > 0 ? '+' : '') + n.toLocaleString('ko-KR');
+
+  /* ── 공통 데이터 ── */
+  const dongs6  = ['남항동','봉래동','신선동','영선동','청학동'];
+  const colors6 = ['#378ADD','#E24B4A','#FAC775','#7F77DD','#D4537E'];
+  const dashes6 = [[], [2,2], [6,2,2,2], [4,4], [8,3]];
+
+  const rawData = {
+    '남항동': [15956, 15088, 23138, 17746, 23386, 31231],
+    '봉래동': [9886, 8095, 11368, 31129, 42025, 57553],
+    '신선동': [2657, 2486, 7793, 7466, 10435, 12012],
+    '영선동': [15343, 14533, 19801, 19663, 29243, 31456],
+    '청학동': [11864, 9753, 19006, 19462, 23774, 37222],
+  };
+
+  const labels6    = ['2025년 1월','2025년 2월','2025년 3월','2026년 1월','2026년 2월','2026년 3월'];
+  const rateLabels = ['1월 (25→26)','2월 (25→26)','3월 (25→26)'];
+
+  /* ── 동 단위 3월 데이터 (v2 파일) ── */
+  const dongRows = [
+    {dong:'봉래2동', v1:2175,   v2:31799,  diff:29624, rate:1362},
+    {dong:'동삼1동', v1:19197,  v2:73225,  diff:54028,  rate:281},
+    {dong:'봉래1동', v1:9193,   v2:25754,  diff:16561,  rate:180},
+    {dong:'동삼3동', v1:16400,  v2:42193,  diff:25793,  rate:157},
+    {dong:'영선1동', v1:1398,   v2:3111,   diff:1713,   rate:123},
+    {dong:'청학1동', v1:8517,   v2:16972,  diff:8455,   rate:99},
+    {dong:'청학2동', v1:10489,  v2:20250,  diff:9761,   rate:93},
+    {dong:'신선동',  v1:7793,   v2:12012,  diff:4219,   rate:54},
+    {dong:'영선2동', v1:18403,  v2:28345,  diff:9942,   rate:54},
+    {dong:'남항동',  v1:23138,  v2:31231,  diff:8093,   rate:35},
+    {dong:'동삼2동', v1:101888, v2:127308, diff:25420,  rate:25},
+  ];
+
+  /* ── 봉래동 월별 데이터 ── */
+  const monthlyRows = [
+    {월:1, v2025:9886,  v2026:31129, 증가:21243},
+    {월:2, v2025:8095,  v2026:42025, 증가:33930},
+    {월:3, v2025:11368, v2026:57553, 증가:46185},
+  ];
+
+  /* ── 월별 수치 테이블 ── */
+  const detailTbody = document.getElementById('detailTbody');
+  dongs6.forEach(d => {
+    detailTbody.innerHTML += `<tr><td>${d}</td>${rawData[d].map(n=>`<td class="num">${fmt(n)}</td>`).join('')}</tr>`;
+  });
+
+  /* ── 증감률 상세 테이블 ── */
+  const rateTbody = document.getElementById('rateTbody');
+  dongs6.forEach(d => {
+    const v = rawData[d];
+    const m = [
+      {diff:v[3]-v[0], rate:Math.round((v[3]-v[0])/v[0]*100)},
+      {diff:v[4]-v[1], rate:Math.round((v[4]-v[1])/v[1]*100)},
+      {diff:v[5]-v[2], rate:Math.round((v[5]-v[2])/v[2]*100)},
+    ];
+    rateTbody.innerHTML += `<tr><td>${d}</td>${m.map(r=>
+      `<td class="num ${r.rate>=0?'pos':'neg'}">${fmtS(r.diff)}명</td>
+       <td class="${r.rate>=0?'rate-pos':'rate-neg'}">${r.rate>=0?'+':''}${r.rate}%</td>`
+    ).join('')}</tr>`;
+  });
+
+  /* ── 행정동 테이블 (동 단위) ── */
+  const dongTbody = document.getElementById('dongTbody');
+  dongRows.forEach(r => {
+    dongTbody.innerHTML += `<tr>
+      <td>${r.dong}</td>
+      <td class="num">${fmt(r.v1)}명</td>
+      <td class="num">${fmt(r.v2)}명</td>
+      <td class="num pos">${fmtS(r.diff)}명</td>
+      <td class="num pos">+${r.rate}%</td>
+    </tr>`;
+  });
+
+  /* ── 봉래동 월별 테이블 ── */
+  const monthlyTbody = document.getElementById('monthlyTbody');
+  monthlyRows.forEach(r => {
+    monthlyTbody.innerHTML += `<tr>
+      <td>${r.월}월</td>
+      <td class="num">${fmt(r.v2025)}명</td>
+      <td class="num">${fmt(r.v2026)}명</td>
+      <td class="num pos">${fmtS(r.증가)}명</td>
+    </tr>`;
+  });
+
+  /* ── 추이 차트 ── */
+  let trendChart;
+  function buildTrendDatasets(type) {
+    return dongs6.map((d, i) => ({
+      label: d,
+      data: rawData[d],
+      borderColor: colors6[i],
+      backgroundColor: type === 'line' ? colors6[i]+'22' : colors6[i],
+      borderDash: type === 'line' ? dashes6[i] : [],
+      borderWidth: 2,
+      pointRadius: type === 'line' ? 4 : 0,
+      tension: 0.25,
+      borderRadius: type === 'bar' ? 3 : 0,
+    }));
+  }
+  function renderTrendChart(type) {
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    if (trendChart) trendChart.destroy();
+    trendChart = new Chart(ctx, {
+      type,
+      data: { labels: labels6, datasets: buildTrendDatasets(type) },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          datalabels: { display: false },
+          tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${fmt(ctx.parsed.y)}명` } }
+        },
+        scales: {
+          x: { ticks:{font:{size:11},color:'#767c75'}, grid:{color:'rgba(120,120,110,0.1)'} },
+          y: { ticks:{font:{size:11},color:'#767c75',callback:v=>v>=1000?(v/1000).toFixed(0)+'k':v}, grid:{color:'rgba(120,120,110,0.1)'} }
+        }
+      }
+    });
+    document.getElementById('trendLegend').innerHTML = dongs6.map((d,i)=>
+      `<span class="legend-item"><span class="legend-dot" style="background:${colors6[i]}"></span>${d}</span>`
+    ).join('');
+  }
+  function setTrendMode(type, btn) {
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderTrendChart(type);
+  }
+  renderTrendChart('line');
+
+  /* ── 전년 동월 증감률 차트 ── */
+  new Chart(document.getElementById('rateBarChart'), {
+    type: 'bar',
+    data: {
+      labels: rateLabels,
+      datasets: dongs6.map((d, i) => {
+        const v = rawData[d];
+        return {
+          label: d,
+          data: [
+            Math.round((v[3]-v[0])/v[0]*100),
+            Math.round((v[4]-v[1])/v[1]*100),
+            Math.round((v[5]-v[2])/v[2]*100),
+          ],
+          backgroundColor: colors6[i],
+          borderRadius: 3,
+        };
+      })
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        datalabels: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y>0?'+':''}${ctx.parsed.y}%` } }
+      },
+      scales: {
+        x: { ticks:{font:{size:12},color:'#767c75'}, grid:{display:false} },
+        y: { ticks:{font:{size:11},color:'#767c75',callback:v=>v+'%'}, grid:{color:'rgba(120,120,110,0.1)'} }
+      }
+    }
+  });
+  document.getElementById('rateBarLegend').innerHTML = dongs6.map((d,i)=>
+    `<span class="legend-item"><span class="legend-dot" style="background:${colors6[i]}"></span>${d}</span>`
+  ).join('');
+
+  /* ── 행정동 3월 증감률 가로 막대 ── */
+  new Chart(document.getElementById('dongChart'), {
+    type: 'bar',
+    data: {
+      labels: dongRows.map(d => d.dong),
+      datasets: [{
+        label: '증감률 (%)',
+        data: dongRows.map(d => d.rate),
+        backgroundColor: '#259f78',
+        borderRadius: 4,
+        barThickness: 26
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 56 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `+${dongRows[ctx.dataIndex].rate}% (${fmt(dongRows[ctx.dataIndex].v1)}명 → ${fmt(dongRows[ctx.dataIndex].v2)}명)` } },
+        datalabels: {
+          anchor: 'end', align: 'right', clamp: true,
+          color: '#35594f',
+          formatter: v => `+${v}%`,
+          font: { weight: '700', size: 11 }
+        }
+      },
+      scales: {
+        x: { beginAtZero: true, ticks:{color:'#767c75',callback:v=>v+'%',font:{size:11}}, grid:{color:'rgba(120,120,110,0.12)'} },
+        y: { ticks:{color:'#313632',font:{size:13}}, grid:{display:false} }
+      }
+    }
+  });
+
+  /* ── 봉래동 월별 꺾은선 ── */
+  new Chart(document.getElementById('monthlyChart'), {
+    type: 'line',
+    data: {
+      labels: monthlyRows.map(d => d.월 + '월'),
+      datasets: [{
+        label: '봉래동 증가 방문자 수',
+        data: monthlyRows.map(d => d.증가),
+        borderColor: '#2f7fbd',
+        backgroundColor: '#2f7fbd',
+        pointRadius: 4,
+        pointHoverRadius: 5,
+        tension: 0.2,
+        fill: false
+      }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      layout: { padding: { right: 46, top: 8 } },
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${fmt(ctx.raw)}명` } },
+        datalabels: {
+          anchor: 'end',
+          align: ctx => ctx.dataIndex === monthlyRows.length - 1 ? 'left' : 'top',
+          offset: ctx => ctx.dataIndex === monthlyRows.length - 1 ? 6 : 2,
+          clamp: true, clip: false,
+          color: '#2f3130',
+          formatter: v => fmt(v),
+          font: { weight: '700', size: 11 }
+        }
+      },
+      scales: {
+        x: { ticks:{color:'#646b65',font:{size:12}}, grid:{color:'rgba(120,120,110,0.08)'} },
+        y: { beginAtZero: false, ticks:{color:'#646b65',callback:v=>fmt(v)}, grid:{color:'rgba(120,120,110,0.12)'} }
+      }
+    }
+  });
+
+  /* ── 다운로드 ── */
+  function downloadCanvas(canvasId, filename) {
+    const canvas = document.getElementById(canvasId);
+    const tmp = document.createElement('canvas');
+    tmp.width = canvas.width; tmp.height = canvas.height;
+    const ctx = tmp.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, tmp.width, tmp.height);
+    ctx.drawImage(canvas, 0, 0);
+    const a = document.createElement('a');
+    a.href = tmp.toDataURL('image/png');
+    a.download = filename;
+    a.click();
+  }
+</script>
+</body>
+</html>
