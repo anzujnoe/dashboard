@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>매장 매출 대시보드 2026</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg:      #f5f5f3;
+    --bg2:     #ffffff;
+    --bg3:     #f0f0ee;
+    --border:  rgba(0,0,0,0.08);
+    --border2: rgba(0,0,0,0.14);
+    --text:    #1a1a1a;
+    --muted:   #888780;
+    --accent:  #2563eb;
+    --store1:  #2563eb;
+    --store2:  #059669;
+    --store3:  #ea580c;
+    --store4:  #7c3aed;
+    --good:    #059669;
+    --bad:     #dc2626;
+    --warn:    #d97706;
+  }
+  html { font-size: 14px; }
+  body {
+    font-family: 'Noto Sans KR', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+  }
+
+  /* HEADER */
+  .header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 18px 32px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg2);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo-mark {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+  .logo-mark span { color: #fff; font-size: 0.75rem; font-weight: 700; }
+  .header-title { font-size: 0.95rem; font-weight: 700; letter-spacing: -0.02em; color: var(--text); }
+  .header-sub { font-size: 0.72rem; color: var(--muted); margin-top: 1px; }
+  .header-badge {
+    font-family: 'DM Mono', monospace;
+    font-size: 0.68rem; background: #eff6ff;
+    color: var(--accent); border: 1px solid #bfdbfe;
+    border-radius: 4px; padding: 3px 10px; font-weight: 500;
+  }
+
+  /* TABS */
+  .tabs {
+    display: flex; padding: 0 32px;
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .tab {
+    padding: 11px 18px;
+    font-size: 0.8rem; font-weight: 500;
+    color: var(--muted);
+    border-bottom: 2px solid transparent;
+    cursor: pointer; white-space: nowrap;
+    transition: color 0.18s, border-color 0.18s;
+    display: flex; align-items: center; gap: 7px;
+  }
+  .tab:hover { color: var(--text); }
+  .tab.active { color: var(--text); border-bottom-color: var(--accent); }
+  .tab-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
+
+  /* MAIN */
+  .main { padding: 24px 32px; max-width: 1440px; margin: 0 auto; }
+
+  /* KPI */
+  .kpi-grid { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 16px 18px;
+    border-top-width: 3px;
+  }
+  .kpi-label { font-size: 0.7rem; color: var(--muted); margin-bottom: 6px; font-weight: 500; }
+  .kpi-val { font-size: 1.5rem; font-weight: 700; letter-spacing: -0.03em; line-height: 1; }
+  .kpi-meta { font-size: 0.68rem; color: var(--muted); margin-top: 7px; display: flex; align-items: center; gap: 5px; }
+  .badge-up { color: var(--good); font-weight: 600; }
+  .badge-dn { color: var(--bad); font-weight: 600; }
+
+  /* CHART CARD */
+  .charts-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 14px; margin-bottom: 16px; }
+  .chart-card {
+    background: var(--bg2); border: 1px solid var(--border);
+    border-radius: 10px; padding: 18px 20px;
+  }
+  .card-title { font-size: 0.8rem; font-weight: 700; color: var(--text); margin-bottom: 3px; }
+  .card-sub { font-size: 0.68rem; color: var(--muted); margin-bottom: 12px; }
+  .legend-row { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+  .legend-item { display: flex; align-items: center; gap: 5px; font-size: 0.68rem; color: var(--muted); }
+  .legend-sq { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+
+  /* BOTTOM GRID */
+  .bottom-grid { display: grid; grid-template-columns: minmax(0,1.7fr) minmax(0,1fr); gap: 14px; margin-bottom: 16px; }
+  .full-card { background: var(--bg2); border: 1px solid var(--border); border-radius: 10px; padding: 18px 20px; margin-bottom: 16px; }
+
+  /* TABLE */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.72rem; }
+  thead th {
+    padding: 7px 10px; text-align: center;
+    color: var(--muted); font-weight: 600;
+    border-bottom: 1px solid var(--border2);
+    background: var(--bg3);
+    white-space: nowrap;
+  }
+  thead th:first-child { text-align: left; border-radius: 4px 0 0 0; }
+  thead th:last-child { border-radius: 0 4px 0 0; }
+  tbody tr { border-bottom: 1px solid var(--border); }
+  tbody tr:hover { background: var(--bg3); }
+  tbody td { padding: 7px 10px; text-align: center; color: var(--text); }
+  tbody td:first-child { text-align: left; font-weight: 500; }
+  .num { font-family: 'DM Mono', monospace; font-size: 0.69rem; }
+  .pill-up { background: #d1fae5; color: #065f46; border-radius: 4px; padding: 2px 7px; font-size: 0.66rem; font-weight: 700; }
+  .pill-dn { background: #fee2e2; color: #991b1b; border-radius: 4px; padding: 2px 7px; font-size: 0.66rem; font-weight: 700; }
+  .pill-nu { background: #fef3c7; color: #92400e; border-radius: 4px; padding: 2px 7px; font-size: 0.66rem; font-weight: 700; }
+
+  /* STORE TAG */
+  .store-tag { display: inline-block; font-size: 0.64rem; font-weight: 700; border-radius: 4px; padding: 2px 7px; }
+  .st1 { background: #eff6ff; color: #1d4ed8; }
+  .st2 { background: #ecfdf5; color: #065f46; }
+  .st3 { background: #fff7ed; color: #9a3412; }
+  .st4 { background: #f5f3ff; color: #5b21b6; }
+
+  /* MINI BAR */
+  .mini-bar-row { display: flex; align-items: center; gap: 8px; margin-bottom: 7px; }
+  .mini-bar-label { font-size: 0.67rem; color: var(--muted); width: 70px; flex-shrink: 0; text-align: right; }
+  .mini-bar-track { flex: 1; height: 7px; background: var(--bg3); border-radius: 4px; overflow: hidden; }
+  .mini-bar-fill { height: 100%; border-radius: 4px; }
+  .mini-bar-val { font-family: 'DM Mono', monospace; font-size: 0.65rem; color: var(--muted); width: 40px; text-align: right; flex-shrink: 0; font-weight: 500; }
+
+  .divider { height: 1px; background: var(--border); margin: 16px 0; }
+  canvas { display: block; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo-mark"><span>BR</span></div>
+    <div>
+      <div class="header-title">바리스타팀 매출 대시보드</div>
+      <div class="header-sub">본점 · 영도 · 마린시티 · 도모헌 — 2026년 1~3월</div>
+    </div>
+  </div>
+  <div class="header-badge">2026 Q1</div>
+</div>
+
+<div class="tabs">
+  <div class="tab active" onclick="showTab('all',this)">
+    <span class="tab-dot" style="background:#94a3b8"></span>전체 비교
+  </div>
+  <div class="tab" onclick="showTab('bonjum',this)">
+    <span class="tab-dot" style="background:var(--store1)"></span>본점
+  </div>
+  <div class="tab" onclick="showTab('yeongdo',this)">
+    <span class="tab-dot" style="background:var(--store2)"></span>영도
+  </div>
+  <div class="tab" onclick="showTab('marine',this)">
+    <span class="tab-dot" style="background:var(--store3)"></span>마린시티
+  </div>
+  <div class="tab" onclick="showTab('domoheon',this)">
+    <span class="tab-dot" style="background:var(--store4)"></span>도모헌
+  </div>
+</div>
+
+<div class="main">
+
+<!-- ALL TAB -->
+<div id="tab-all">
+  <div class="kpi-grid">
+    <div class="kpi" style="border-top-color:var(--store1)">
+      <div class="kpi-label">본점 3월 총매출</div>
+      <div class="kpi-val" style="color:var(--store1)">4.55억</div>
+      <div class="kpi-meta"><span class="badge-up">↑ +40.5%</span>1월 比</div>
+    </div>
+    <div class="kpi" style="border-top-color:var(--store2)">
+      <div class="kpi-label">영도 3월 총매출</div>
+      <div class="kpi-val" style="color:var(--store2)">2.25억</div>
+      <div class="kpi-meta"><span class="badge-dn">↓ -3.1%</span>1월 比 감소</div>
+    </div>
+    <div class="kpi" style="border-top-color:var(--store3)">
+      <div class="kpi-label">마린시티 3월 총매출</div>
+      <div class="kpi-val" style="color:var(--store3)">3.05억</div>
+      <div class="kpi-meta"><span class="badge-up">↑ +32.3%</span>1월 比</div>
+    </div>
+    <div class="kpi" style="border-top-color:var(--store4)">
+      <div class="kpi-label">도모헌 3월 총매출</div>
+      <div class="kpi-val" style="color:var(--store4)">0.94억</div>
+      <div class="kpi-meta"><span class="badge-up">↑ +21.4%</span>1월 比</div>
+    </div>
+  </div>
+
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="card-title">매장별 월별 총매출 추이</div>
+      <div class="card-sub">단위: 만원 / 1~3월</div>
+      <div class="legend-row">
+        <div class="legend-item"><div class="legend-sq" style="background:#2563eb"></div>본점</div>
+        <div class="legend-item"><div class="legend-sq" style="background:#059669"></div>영도</div>
+        <div class="legend-item"><div class="legend-sq" style="background:#ea580c"></div>마린시티</div>
+        <div class="legend-item"><div class="legend-sq" style="background:#7c3aed"></div>도모헌</div>
+      </div>
+      <div style="position:relative;height:210px">
+        <canvas id="allTrend" role="img" aria-label="매장별 월별 총매출 추이"></canvas>
+      </div>
+    </div>
+    <div class="chart-card">
+      <div class="card-title">3월 매장별 음료·상품 매출</div>
+      <div class="card-sub">단위: 만원</div>
+      <div style="position:relative;height:250px">
+        <canvas id="storeCompose" role="img" aria-label="매장별 음료 상품 매출"></canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="bottom-grid">
+    <div class="full-card" style="margin-bottom:0">
+      <div class="card-title">카테고리별 3월 매출 비교</div>
+      <div class="card-sub" style="margin-bottom:12px">주요 카테고리 — 4개 매장 (단위: 만원)</div>
+      <div class="table-wrap">
+        <table id="catCompTable"></table>
+      </div>
+    </div>
+    <div class="full-card" style="margin-bottom:0">
+      <div class="card-title">3월 음료 vs 상품 비중</div>
+      <div class="card-sub" style="margin-bottom:14px">매장별 구성비</div>
+      <div id="ratioMiniBar"></div>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="full-card">
+    <div class="card-title" style="margin-bottom:3px">전체 매장 월별 합계 비교</div>
+    <div class="card-sub" style="margin-bottom:12px">단위: 만원</div>
+    <div class="table-wrap">
+      <table id="storeTotalTable"></table>
+    </div>
+  </div>
+</div>
+
+<!-- STORE TABS -->
+<div id="tab-bonjum" style="display:none"></div>
+<div id="tab-yeongdo" style="display:none"></div>
+<div id="tab-marine" style="display:none"></div>
+<div id="tab-domoheon" style="display:none"></div>
+
+</div><!-- /main -->
+
+<script>
+const MONTHS = ['1월','2월','3월'];
+const STORE_NAMES = ['본점','영도','마린시티','도모헌'];
+const STORE_COLORS = { 본점:'#2563eb', 영도:'#059669', 마린시티:'#ea580c', 도모헌:'#7c3aed' };
+const STORE_LIGHT  = { 본점:'#eff6ff', 영도:'#ecfdf5', 마린시티:'#fff7ed', 도모헌:'#f5f3ff' };
+
+const RAW = {
+  본점: {
+    커피:       [63264540, 66458762, 80083491],
+    필터커피:   [56600044, 63449851, 76537251],
+    시그니처:   [15816606, 23737598, 30320130],
+    논커피:     [16713023, 17193500, 19054985],
+    베이커리:   [83957353, 96364575,119039831],
+    원두:       [42673773, 51989318, 57337386],
+    드립백:     [32648495, 74103650, 56585359],
+    캡슐:       [ 4536364,  5585455,  6624045],
+    콜드브루:   [ 2203789,  3277545,  3202823],
+    굳즈:       [ 1759727,  1684631,  2608596],
+    스마트오더: [49148500, 73656400,107243000],
+    음료매출:   [152394213,170839711,205995856],
+    상품매출:   [83918330,136812054,126483392],
+    합계:       [323429217,407483432,454638868],
+  },
+  영도: {
+    커피:       [31235685, 34099425, 41212038],
+    필터커피:   [36115637, 39103182, 45037006],
+    시그니처:   [20911830, 23151024, 20600462],
+    논커피:     [ 7309366,  8367359,  7867962],
+    베이커리:   [21118910, 21994947, 24688495],
+    원두:       [34321583, 39250909, 45869318],
+    드립백:     [42121575, 52519029, 50949205],
+    캡슐:       [ 4680455,  5954425,  5069318],
+    콜드브루:   [ 4303160,  2709708,  2661750],
+    굳즈:       [ 3041250,  1442118,  2003727],
+    스마트오더: [15682600, 16438700, 16038300],
+    음료매출:   [95572519,104720989,104288607],
+    상품매출:   [90765259,103571025, 97758948],
+    합계:       [208336423,232074445,224975112],
+  },
+  마린시티: {
+    커피:       [51998089, 60004238, 66613647],
+    필터커피:   [41687522, 44558171, 50800859],
+    시그니처:   [14143545, 18003475, 18575855],
+    논커피:     [ 9767093, 11894073, 11498968],
+    베이커리:   [55108415, 62816668, 70509196],
+    원두:       [26310304, 34270682, 40297159],
+    드립백:     [22502383, 40252045, 34505455],
+    캡슐:       [ 3138182,  4460182,  4541818],
+    콜드브루:   [ 1065273,  1867364,  1759409],
+    굳즈:       [  871818,  1248818,  1527091],
+    스마트오더: [30483700, 46568500, 52728400],
+    음료매출:   [117596249,134459957,147489329],
+    상품매출:   [109536193, 82946273, 82922114],
+    합계:       [230432523,285224945,304903732],
+  },
+  도모헌: {
+    배치커피:   [18837777, 20683109, 30639857],
+    필터커피:   [17407639, 15506773, 17993500],
+    시그니처:   [ 6042591,  6210745,  2800531],
+    논커피:     [ 8948665,  9176409,  9582952],
+    베이커리:   [12259709, 11580882, 14216415],
+    원두:       [ 5201818,  6162182,  7239545],
+    드립백:     [ 6592273,  9167600,  8612591],
+    캡슐:       [  875455,  1282364,  1211818],
+    콜드브루:   [  351636,   526785,   625500],
+    굳즈:       [  334364,   242545,   294545],
+    스마트오더: [ 5332800, 12919400,    70500],
+    음료매출:   [51236672, 51577036, 61016840],
+    상품매출:   [13382355, 17464818, 18026877],
+    합계:       [77147827, 81322736, 93687405],
+  },
+};
+
+function won(v) { return Math.round(v/10000).toLocaleString(); }
+function pct(a,b) { return ((b-a)/a*100).toFixed(1); }
+function pill(v) {
+  const n = parseFloat(v);
+  if(n > 0) return `<span class="pill-up">+${v}%</span>`;
+  if(n < 0) return `<span class="pill-dn">${v}%</span>`;
+  return `<span class="pill-nu">${v}%</span>`;
+}
+
+const CHART_GRID_COLOR = 'rgba(0,0,0,0.06)';
+const TICK_COLOR = '#9ca3af';
+const CAT_COLORS = ['#2563eb','#059669','#ea580c','#7c3aed','#d97706','#dc2626','#0891b2','#65a30d'];
+
+/* ALL TAB */
+function initAllCharts() {
+  new Chart(document.getElementById('allTrend'), {
+    type: 'line',
+    data: {
+      labels: MONTHS,
+      datasets: STORE_NAMES.map(s => ({
+        label: s,
+        data: RAW[s].합계.map(v => Math.round(v/10000)),
+        borderColor: STORE_COLORS[s],
+        backgroundColor: 'transparent',
+        borderWidth: 2.5, pointRadius: 5,
+        pointBackgroundColor: STORE_COLORS[s],
+        tension: 0.35,
+      }))
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { ticks:{color:TICK_COLOR,font:{size:11}}, grid:{color:CHART_GRID_COLOR} },
+        y: { ticks:{color:TICK_COLOR,font:{size:10},callback:v=>v.toLocaleString()+'만'}, grid:{color:CHART_GRID_COLOR} }
+      }
+    }
+  });
+
+  new Chart(document.getElementById('storeCompose'), {
+    type: 'bar',
+    data: {
+      labels: STORE_NAMES,
+      datasets: [
+        {
+          label:'음료매출',
+          data: STORE_NAMES.map(s => Math.round(RAW[s].음료매출[2]/10000)),
+          backgroundColor: STORE_NAMES.map(s => STORE_COLORS[s]),
+          borderRadius: 4,
+        },
+        {
+          label:'상품매출',
+          data: STORE_NAMES.map(s => Math.round(RAW[s].상품매출[2]/10000)),
+          backgroundColor: STORE_NAMES.map(s => STORE_COLORS[s]+'44'),
+          borderRadius: 4,
+        }
+      ]
+    },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: true, labels:{color:TICK_COLOR,font:{size:10},boxWidth:10} } },
+      scales: {
+        x: { ticks:{color:TICK_COLOR,font:{size:10},callback:v=>v.toLocaleString()+'만'}, grid:{color:CHART_GRID_COLOR} },
+        y: { ticks:{color:'#374151',font:{size:11,weight:'500'}}, grid:{display:false} }
+      }
+    }
+  });
+}
+
+function buildCatCompTable() {
+  const cats = ['커피','필터커피','베이커리','원두','드립백','스마트오더'];
+  const colors = ['#2563eb','#059669','#ea580c','#7c3aed'];
+  let head = `<thead><tr><th>카테고리</th>${STORE_NAMES.map((s,i)=>`<th style="color:${colors[i]}">${s}</th>`).join('')}<th>합계</th></tr></thead>`;
+  let rows = cats.map(cat => {
+    const vals = STORE_NAMES.map(s => {
+      const key = s==='도모헌'&&cat==='커피' ? '배치커피' : cat;
+      return RAW[s][key] ? RAW[s][key][2] : 0;
+    });
+    const total = vals.reduce((a,b)=>a+b,0);
+    return `<tr><td>${cat}</td>${vals.map(v=>`<td class="num">${won(v)}만</td>`).join('')}<td class="num" style="color:var(--muted)">${won(total)}만</td></tr>`;
+  }).join('');
+  document.getElementById('catCompTable').innerHTML = head+`<tbody>${rows}</tbody>`;
+}
+
+function buildStoreTotalTable() {
+  const colors = ['#1d4ed8','#065f46','#9a3412','#5b21b6'];
+  let head = `<thead><tr><th>매장</th><th>1월</th><th>2월</th><th>3월</th><th>1→2월</th><th>2→3월</th><th>1→3월</th></tr></thead>`;
+  let rows = STORE_NAMES.map((s,i) => {
+    const m = RAW[s].합계;
+    return `<tr>
+      <td><span class="store-tag st${i+1}">${s}</span></td>
+      <td class="num">${won(m[0])}만</td>
+      <td class="num">${won(m[1])}만</td>
+      <td class="num">${won(m[2])}만</td>
+      <td>${pill(pct(m[0],m[1]))}</td>
+      <td>${pill(pct(m[1],m[2]))}</td>
+      <td>${pill(pct(m[0],m[2]))}</td>
+    </tr>`;
+  }).join('');
+  document.getElementById('storeTotalTable').innerHTML = head+`<tbody>${rows}</tbody>`;
+}
+
+function buildRatioMiniBar() {
+  const colors = Object.values(STORE_COLORS);
+  const html = STORE_NAMES.map((s,i) => {
+    const total = RAW[s].합계[2];
+    const ap = Math.round(RAW[s].음료매출[2]/total*100);
+    const gp = Math.round(RAW[s].상품매출[2]/total*100);
+    return `<div style="margin-bottom:18px">
+      <div style="font-size:0.7rem;color:${colors[i]};font-weight:700;margin-bottom:7px">${s}</div>
+      <div class="mini-bar-row">
+        <div class="mini-bar-label">음료</div>
+        <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${ap}%;background:${colors[i]}"></div></div>
+        <div class="mini-bar-val">${ap}%</div>
+      </div>
+      <div class="mini-bar-row">
+        <div class="mini-bar-label">상품</div>
+        <div class="mini-bar-track"><div class="mini-bar-fill" style="width:${gp}%;background:${colors[i]}55"></div></div>
+        <div class="mini-bar-val">${gp}%</div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('ratioMiniBar').innerHTML = html;
+}
+
+/* STORE TAB */
+const STORE_TAB_MAP = { bonjum:'본점', yeongdo:'영도', marine:'마린시티', domoheon:'도모헌' };
+const builtTabs = new Set();
+
+function buildStoreTab(store, tabId) {
+  const el = document.getElementById(tabId);
+  const d = RAW[store];
+  const color = STORE_COLORS[store];
+  const light = STORE_LIGHT[store];
+  const cats = Object.keys(d).filter(k => !['음료매출','상품매출','합계'].includes(k));
+  const si = STORE_NAMES.indexOf(store)+1;
+
+  const kpiHtml = `<div class="kpi-grid" style="margin-bottom:20px">
+    <div class="kpi" style="border-top-color:${color};background:${light}">
+      <div class="kpi-label">3월 총매출</div>
+      <div class="kpi-val" style="color:${color}">${won(d.합계[2])}만</div>
+      <div class="kpi-meta"><span class="badge-up">↑ +${pct(d.합계[0],d.합계[2])}%</span>1월 比</div>
+    </div>
+    <div class="kpi" style="border-top-color:${color}">
+      <div class="kpi-label">3월 음료매출</div>
+      <div class="kpi-val" style="color:${color}">${won(d.음료매출[2])}만</div>
+      <div class="kpi-meta">비중 <strong>${Math.round(d.음료매출[2]/d.합계[2]*100)}%</strong></div>
+    </div>
+    <div class="kpi" style="border-top-color:${color}">
+      <div class="kpi-label">3월 상품매출</div>
+      <div class="kpi-val" style="color:${color}">${won(d.상품매출[2])}만</div>
+      <div class="kpi-meta">비중 <strong>${Math.round(d.상품매출[2]/d.합계[2]*100)}%</strong></div>
+    </div>
+    <div class="kpi" style="border-top-color:${color}">
+      <div class="kpi-label">1~3월 누계</div>
+      <div class="kpi-val" style="color:${color}">${won(d.합계.reduce((a,b)=>a+b,0))}만</div>
+      <div class="kpi-meta">3개월 합산</div>
+    </div>
+  </div>`;
+
+  const id1=`${tabId}_bar`, id2=`${tabId}_donut`, id3=`${tabId}_line`;
+  const mainCats = cats.filter(c=>['커피','배치커피','필터커피','베이커리','원두','드립백','스마트오더'].includes(c));
+
+  const catRows = cats.map(cat => {
+    const m = d[cat];
+    return `<tr><td>${cat}</td>
+      <td class="num">${won(m[0])}만</td>
+      <td class="num">${won(m[1])}만</td>
+      <td class="num">${won(m[2])}만</td>
+      <td>${pill(pct(m[0],m[1]))}</td>
+      <td>${pill(pct(m[1],m[2]))}</td>
+      <td>${pill(pct(m[0],m[2]))}</td>
+    </tr>`;
+  }).join('');
+
+  el.innerHTML = kpiHtml + `
+  <div class="charts-grid">
+    <div class="chart-card">
+      <div class="card-title">월별 총매출 · 음료 · 상품 추이</div>
+      <div class="card-sub">단위: 만원</div>
+      <div style="position:relative;height:210px"><canvas id="${id1}" role="img" aria-label="${store} 월별 추이"></canvas></div>
+    </div>
+    <div class="chart-card">
+      <div class="card-title">3월 카테고리 비중</div>
+      <div class="card-sub">매출 구성 도넛</div>
+      <div style="position:relative;height:210px"><canvas id="${id2}" role="img" aria-label="${store} 카테고리 비중"></canvas></div>
+    </div>
+  </div>
+  <div class="full-card">
+    <div class="card-title" style="margin-bottom:3px">주요 카테고리 월별 추이</div>
+    <div class="card-sub" style="margin-bottom:12px">단위: 만원</div>
+    <div style="position:relative;height:210px"><canvas id="${id3}" role="img" aria-label="${store} 카테고리 추이"></canvas></div>
+  </div>
+  <div class="full-card">
+    <div class="card-title" style="margin-bottom:3px">카테고리별 성장률 상세</div>
+    <div class="card-sub" style="margin-bottom:12px">단위: 만원</div>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>카테고리</th><th>1월</th><th>2월</th><th>3월</th><th>1→2월</th><th>2→3월</th><th>전체성장</th></tr></thead>
+        <tbody>${catRows}</tbody>
+      </table>
+    </div>
+  </div>`;
+
+  setTimeout(() => {
+    new Chart(document.getElementById(id1), {
+      type:'bar',
+      data:{
+        labels:MONTHS,
+        datasets:[
+          {label:'총매출', data:d.합계.map(v=>Math.round(v/10000)), backgroundColor:color+'cc', borderRadius:4},
+          {label:'음료매출', data:d.음료매출.map(v=>Math.round(v/10000)), backgroundColor:color+'77', borderRadius:4},
+          {label:'상품매출', data:d.상품매출.map(v=>Math.round(v/10000)), backgroundColor:color+'33', borderRadius:4},
+        ]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,labels:{color:TICK_COLOR,font:{size:10},boxWidth:10}}},
+        scales:{
+          x:{ticks:{color:TICK_COLOR,font:{size:11}},grid:{color:CHART_GRID_COLOR}},
+          y:{ticks:{color:TICK_COLOR,font:{size:10},callback:v=>v.toLocaleString()+'만'},grid:{color:CHART_GRID_COLOR}}
+        }
+      }
+    });
+
+    const catVals = cats.map(c=>d[c][2]);
+    new Chart(document.getElementById(id2), {
+      type:'doughnut',
+      data:{
+        labels:cats,
+        datasets:[{data:catVals,backgroundColor:CAT_COLORS,borderWidth:2,borderColor:'#fff'}]
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,cutout:'55%',
+        plugins:{legend:{display:true,position:'right',labels:{color:TICK_COLOR,font:{size:9},boxWidth:9,padding:6}}}
+      }
+    });
+
+    new Chart(document.getElementById(id3), {
+      type:'line',
+      data:{
+        labels:MONTHS,
+        datasets:mainCats.map((c,i)=>({
+          label:c, data:d[c].map(v=>Math.round(v/10000)),
+          borderColor:CAT_COLORS[i]||'#888',
+          backgroundColor:'transparent',
+          borderWidth:2, pointRadius:4, tension:0.35,
+        }))
+      },
+      options:{
+        responsive:true,maintainAspectRatio:false,
+        plugins:{legend:{display:true,labels:{color:TICK_COLOR,font:{size:9},boxWidth:9}}},
+        scales:{
+          x:{ticks:{color:TICK_COLOR,font:{size:11}},grid:{color:CHART_GRID_COLOR}},
+          y:{ticks:{color:TICK_COLOR,font:{size:10},callback:v=>v.toLocaleString()+'만'},grid:{color:CHART_GRID_COLOR}}
+        }
+      }
+    });
+  }, 50);
+}
+
+/* TAB SWITCH */
+function showTab(name, el) {
+  document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));
+  el.classList.add('active');
+  ['all','bonjum','yeongdo','marine','domoheon'].forEach(t=>{
+    document.getElementById('tab-'+t).style.display = t===name ? '' : 'none';
+  });
+  if(name!=='all' && !builtTabs.has(name)) {
+    buildStoreTab(STORE_TAB_MAP[name], 'tab-'+name);
+    builtTabs.add(name);
+  }
+}
+
+initAllCharts();
+buildCatCompTable();
+buildStoreTotalTable();
+buildRatioMiniBar();
+</script>
+</body>
+</html>
